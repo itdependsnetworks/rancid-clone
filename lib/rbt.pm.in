@@ -1,0 +1,274 @@
+package rbt;
+##
+## $Id: rbt.pm.in 3226 2016-01-15 21:41:54Z heas $
+##
+## @PACKAGE@ @VERSION@
+@copyright@
+#
+#  RANCID - Really Awesome New Cisco confIg Differ
+#
+#  rbt.pm - Riverbed Steelhead
+
+use 5.010;
+use strict 'vars';
+use warnings;
+no warnings 'uninitialized';
+require(Exporter);
+our @ISA = qw(Exporter);
+
+use rancid @VERSION@;
+
+our $proc;
+our $found_version;
+
+our $type;				# device model, from ShowVersion
+
+@ISA = qw(Exporter rancid main);
+#XXX @Exporter::EXPORT = qw($VERSION @commandtable %commands @commands);
+
+# load-time initialization
+sub import {
+    0;
+}
+
+# post-open(collection file) initialization
+sub init {
+    $found_version = 0;
+
+    $type = undef;			# device model, from ShowVersion
+
+    # add content lines and separators
+    ProcessHistory("","","","#RANCID-CONTENT-TYPE: $devtype\n#\n");
+
+    0;
+}
+
+# main loop of input of device output
+sub inloop {
+    my($INPUT, $OUTPUT) = @_;
+    my($cmd, $rval);
+
+TOP: while(<$INPUT>) {
+	tr/\015//d;
+	if (/^Error:/) {
+	    print STDOUT ("$host clogin error: $_");
+	    print STDERR ("$host clogin error: $_") if ($debug);
+	    $clean_run = 0;
+	    last;
+	}
+	while (/[>#]\s*($cmds_regexp)\s*$/) {
+	    $cmd = $1;
+	    if (!defined($prompt)) {
+		$prompt = ($_ =~ /^([^#>]+[#>])/)[0];
+		$prompt =~ s/([][}{)(+\\])/\\$1/g;
+		print STDERR ("PROMPT MATCH: $prompt\n") if ($debug);
+	    }
+	    print STDERR ("HIT COMMAND:$_") if ($debug);
+	    if (! defined($commands{$cmd})) {
+		print STDERR "$host: found unexpected command - \"$cmd\"\n";
+		$clean_run = 0;
+		last TOP;
+	    }
+	    if (! defined(&{$commands{$cmd}})) {
+		printf(STDERR "$host: undefined function - \"%s\"\n",
+		       $commands{$cmd});
+		$clean_run = 0;
+		last TOP;
+	    }
+	    $rval = &{$commands{$cmd}}($INPUT, $OUTPUT, $cmd);
+	    delete($commands{$cmd});
+	    if ($rval == -1) {
+		$clean_run = 0;
+		last TOP;
+	    }
+	}
+	if (/[>#]\s?exit$/) {
+	    $clean_run = 1;
+	    last;
+	}
+    }
+}
+
+# This routine parses "show version"
+sub ShowVersion {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    my($slave, $slaveslot);
+    print STDERR "    In ShowVersion: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	if (/^$prompt/) { $found_version = 1; last};
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^\s+\^$/);
+	return(1) if (/Line has invalid autocommand /);
+	return(1) if (/(invalid (input|command) detected|type help or )/i);
+	return(0) if ($found_version);		# Only do this routine once
+	return(-1) if (/command authorization failed/i);
+
+	next if (/^uptime:/i);
+	next if (/^cpu load averages:/i);
+
+	if (/^product model:\s+(\S+)/i) {
+	    $type = $1;
+	    ProcessHistory("COMMENTS","keysort","A1", "#Chassis type: $1\n#\n");
+	    next;
+	}
+	/^system memory:.*\/ (\S+ \S+) total/i &&
+	    ProcessHistory("COMMENTS","keysort","B1", "# Memory: $1\n") &&
+	    next;
+
+	ProcessHistory("COMMENTS","keysort","X1", "# $_");
+    }
+    # flush the history
+    ProcessHistory("","","", "#\n");
+    return(0);
+}
+
+# This routine parses "show hardware all"
+sub ShowHardware {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    print STDERR "    In ShowHardware: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^\s+\^$/);
+	return(1) if (/Line has invalid autocommand /);
+	return(1) if (/(invalid (input|command) detected|type help or )/i);
+
+	ProcessHistory("COMMENTS","keysort","HW","# $_");
+    }
+    ProcessHistory("COMMENTS","keysort","HW","#\n");
+    return(0);
+}
+
+# This routine parses "show Info"
+sub ShowInfo {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    print STDERR "    In ShowInfo: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^\s+\^$/);
+	return(1) if (/Line has invalid autocommand /);
+	return(1) if (/(invalid (input|command) detected|type help or )/i);
+
+	next if (/^(appliance|service) up ?time:/i);
+	next if (/^temperature/i);
+	next if (/^services needs a .*restart.* due to a config change/i);
+	/^serial:\s+(\S+)/ &&
+	    ProcessHistory("COMMENTS","keysort","B1", "#Serial Number: $1\n") &&
+	    next;
+    }
+    ProcessHistory("COMMENTS","keysort","IO","#\n");
+    return(0);
+}
+
+# This routine parses "show license"
+sub ShowLicenses {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    print STDERR "    In ShowLicenses: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^\s+\^$/);
+	return(1) if (/Line has invalid autocommand /);
+	return(1) if (/(invalid (input|command) detected|type help or )/i);
+
+	ProcessHistory("COMMENTS","keysort","LICENSE","#LICENSE: $_");
+    }
+    ProcessHistory("COMMENTS","keysort","LICENSE","#\n");
+    return(0);
+}
+
+# This routine parses "show peers"
+sub ShowPeers {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    print STDERR "    In ShowPeers: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^\s+\^$/);
+	return(1) if (/Line has invalid autocommand /);
+	return(1) if (/(invalid (input|command) detected|type help or )/i);
+
+	ProcessHistory("COMMENTS","keysort","PEERS","#PEERS: $_");
+    }
+    ProcessHistory("COMMENTS","keysort","PEERS","#\n");
+    return(0);
+}
+
+# This routine processes a "show configuration"
+sub WriteTerm {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    print STDERR "    In WriteTerm: $_" if ($debug);
+    my($comment, $linecnt) = (0,0);
+
+    while (<$INPUT>) {
+TOP:
+	tr/\015//d;
+	last if (/^$prompt/);
+	return(1) if (!$linecnt && /^\s+\^\s*$/);
+	next if (/^\s*$cmd\s*$/);
+	return(1) if (/Line has invalid autocommand /);
+	next if (/^\s+\^\s*$/);
+	return(1) if (/(invalid (input|command) detected|type help or )/i);
+	return(1) if (/\%Error: No such file or directory/);
+	return(1) if (/(Open device \S+ failed|Error opening \S+:)/);
+	return(0) if ($found_end);		# Only do this routine once
+	return(-1) if (/command authorization failed/i);
+	return(-1) if (/% ?configuration buffer full/i);
+
+	next if (/^\s*$/);
+	$linecnt++;
+
+	if (/^(\s*username \S+ password 7) \$6\$/) {
+	    if ($filter_pwds >= 2) {
+		ProcessHistory("USER","","","#$1 <removed>\n");
+		next;
+	    }
+	} elsif (/^(\s*username \S+ password 7) / && $filter_pwds >= 1) {
+	    ProcessHistory("USER","","","#$1 <removed>\n");
+	    next;
+	}
+
+	if (/^(\s*service shared-secret secret (client|server)) \S+$/ ||
+	    /^(\s*ip security shared secret) \S+$/) {
+	    if ($filter_pwds >= 1) {
+		ProcessHistory("USER","","","#$1 <removed>\n");
+		next;
+	    }
+	}
+
+	if (/^(\s+snmp-server community) (\S+)/) {
+	    if ($filter_commstr) {
+		ProcessHistory("SNMPSERVERCOMM","keysort","$_",
+			       "#$1 <removed>$'") && next;
+	    } else {
+		ProcessHistory("SNMPSERVERCOMM","keysort","$_","$_") && next;
+	    }
+	}
+
+	# catch anything that wasnt matched above.
+	ProcessHistory("","","","$_");
+    }
+
+    # It lacks a definitive "end of config" marker.  If we have seen at least
+    # 5 lines of config output, we can be reasonably sure that we received the
+    # config.
+    if ($linecnt > 5) {
+	$found_end = 1;
+	return(0);
+    }
+
+    return(0);
+}
+
+1;

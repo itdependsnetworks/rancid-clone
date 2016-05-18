@@ -1,0 +1,216 @@
+#! /bin/sh
+##
+## $Id: rancid-cvs.in 3055 2015-03-12 18:24:07Z heas $
+##
+## @PACKAGE@ @VERSION@
+## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
+## All rights reserved.
+##
+## This code is derived from software contributed to and maintained by
+## Terrapin Communications, Inc. by Henry Kilmer, John Heasley, Andrew Partan,
+## Pete Whiting, Austin Schutz, and Andrew Fort.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted provided that the following conditions
+## are met:
+## 1. Redistributions of source code must retain the above copyright
+##    notice, this list of conditions and the following disclaimer.
+## 2. Redistributions in binary form must reproduce the above copyright
+##    notice, this list of conditions and the following disclaimer in the
+##    documentation and/or other materials provided with the distribution.
+## 3. All advertising materials mentioning features or use of this software
+##    must display the following acknowledgement:
+##        This product includes software developed by Terrapin Communications,
+##        Inc. and its contributors for RANCID.
+## 4. Neither the name of Terrapin Communications, Inc. nor the names of its
+##    contributors may be used to endorse or promote products derived from
+##    this software without specific prior written permission.
+## 5. It is requested that non-binding fixes and modifications be contributed
+##    back to Terrapin Communications, Inc.
+##
+## THIS SOFTWARE IS PROVIDED BY Terrapin Communications, INC. AND CONTRIBUTORS
+## ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+## TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+## PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COMPANY OR CONTRIBUTORS
+## BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+## CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+## SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+## INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+## CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+## POSSIBILITY OF SUCH DAMAGE.
+#
+# Create all of the misc files & dirs needed for each group and import them
+# into CVS or Subversion.
+#
+# rancid-cvs
+#
+
+# Read in the environment
+ENVFILE="@sysconfdir@/rancid.conf"
+
+# print a usage message to stderr
+pr_usage() {
+    echo "usage: $0 [-V] [-f config_file] [group [group ...]]" >&2;
+}
+
+# command-line options
+# -V print version string
+if [ $# -ge 1 ] ; then
+    while [ 1 ] ; do
+	case $1 in
+	-V)
+	    echo "@PACKAGE@ @VERSION@"
+	    exit 0
+	    ;;
+	-f)
+	    shift
+	    # next arg is the alternate config file name
+	    ENVFILE="$1"
+	    if [ -z $ENVFILE ]; then
+		pr_usage
+		exit 1
+	    fi
+	    shift
+	    ;;
+	-*)
+	    echo "unknown option: $1" >&2
+	    pr_usage
+	    exit 1
+	    ;;
+	*)
+	    break;
+	    ;;
+	esac
+    done
+fi
+
+. $ENVFILE
+
+# Base dir
+if [ ! -d $BASEDIR ]; then
+    mkdir -p $BASEDIR ||
+	(echo "Could not create local state directory: $BASEDIR"; exit 1)
+fi
+
+cd $BASEDIR
+
+# RCS system
+RCSSYS=${RCSSYS:=cvs};
+if [ $RCSSYS != "cvs" -a $RCSSYS != "svn" -a $RCSSYS != "git" ] ; then
+    echo "$RCSSYS is not a valid value for RCSSYS. See rancid.conf(5)." >&2
+    exit 1
+fi
+
+# Top level RCS stuff
+case $RCSSYS in
+cvs )
+    if [ ! -d $CVSROOT ]; then
+	cvs -d $CVSROOT init
+    fi
+    ;;
+svn )
+    if echo "$CVSROOT" | grep -q "://"; then
+	# do nothing because CVSROOT is some sort of a URL
+	# also assume the repository has already been provisioned
+	:
+    else
+	if ! svn ls "file://$CVSROOT" >/dev/null 2>&1; then
+	    svnadmin create $CVSROOT @SVN_FSTYPE@
+	fi
+	CVSROOT="file://$CVSROOT"
+    fi
+    ;;
+git)
+    if echo "$CVSROOT" | grep -q "://"; then
+	# do nothing because CVSROOT is some sort of a URL
+	# also assume the repository has already been provisioned
+	:
+    else
+	if [ ! -d $CVSROOT ]; then
+	    mkdir $CVSROOT
+	fi
+    fi
+    ;;
+esac
+
+# Log dir
+if [ ! -d logs ]; then
+    mkdir logs
+fi
+
+# Which groups to do
+if [ $# -ge 1 ] ; then
+	LIST_OF_GROUPS="$*"; export LIST_OF_GROUPS
+elif [ "$LIST_OF_GROUPS" = "" ] ; then
+	echo "LIST_OF_GROUPS is empty in $ENVFILE"
+	exit 1
+fi
+
+for GROUP in `echo $LIST_OF_GROUPS` ;
+do
+    DIR=$BASEDIR/$GROUP
+
+    # Directory for the group and the configs
+    if [ ! -d $DIR ]; then
+	mkdir -p $DIR
+	cd $DIR
+	case $RCSSYS in
+	cvs )
+	    cvs import -m "$GROUP" $GROUP new rancid
+	    cd $BASEDIR
+	    cvs checkout $GROUP
+	    ;;
+	svn )
+	    svn import -m "$GROUP" . $CVSROOT/$GROUP
+	    cd $BASEDIR
+	    svn checkout $CVSROOT/$GROUP $GROUP
+	    cd $DIR
+	    svn update
+	    ;;
+	git )
+	    git init --bare $CVSROOT/$GROUP
+	    git clone $CVSROOT/$GROUP .
+	    git config --global user.name RANCiD
+	    git config --global user.email $USER$MAILDOMAIN
+	    git config --global push.default current
+	    ;;
+	esac
+    fi
+    cd $DIR
+    if [ ! -d configs ]; then
+	rm -f configs
+	mkdir configs
+	if [ $RCSSYS = "git" ]; then
+	    cat > configs/.gitignore <<EOF
+.old
+*.new
+*.raw
+EOF
+	fi
+	$RCSSYS add configs
+	$RCSSYS commit -m 'new' configs
+	if [ $RCSSYS = "git" ]; then
+	    git push
+	fi
+    fi
+
+    # config and status files
+    if [ ! -f routers.all ]; then
+	touch routers.all
+    fi
+    if [ ! -f routers.down ]; then
+	touch routers.down
+    fi
+    if [ ! -f routers.up ]; then
+	touch routers.up
+    fi
+    if [ ! -f router.db ]; then
+	touch router.db
+	$RCSSYS add router.db
+	$RCSSYS commit -m 'new' router.db
+	if [ $RCSSYS = "git" ]; then
+	    git push
+	fi
+    fi
+done

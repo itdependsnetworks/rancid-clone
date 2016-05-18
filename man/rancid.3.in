@@ -1,0 +1,90 @@
+.\"
+.\" $Id: rancid.3.in 2968 2014-12-17 21:31:38Z heas $
+.\"
+.hys 50
+.TH "rancid" "3" "17 December 2014"
+.SH NAME
+rancid \- rancid perl module
+.SH INTRODUCTION
+The
+.B rancid
+library provides functions for handling rancid.types configuration files,
+loading modules, and the basic global variables, variables from parsing
+rancid.types files, and output handling functions that are common to all
+rancid device modules, all of which are "exported" (in perl terms) for use
+by those that import the module.
+Specifically, the library is used by
+.BR rancid (1),
+but it could be used by any perl program for site-specific handling or
+additional automata.
+.PP Input handling functions:
+.TP
+.B RunCommand(*INPUT, *OUTPUT, command)
+Parse a single command that returns no required info; the output is dropped.
+This could be used as the processing function in a command definition in
+a rancid.types file.
+.\"
+.PP
+Output handling functions:
+.sp
+.TP
+.B ProcessHistory([tag], [sort_function], [sort_function_argument], string)
+If the optional tag string and sort_function arguments are omitted, the
+string is output immediately.
+Otherwise, the strings are accumulated in a hash, by the hash key
+sort_function_argument, each time
+.B ProcessHistory()
+is called until the tag or sort_function changes, at which time the queue
+is flushed and the new string is handled.  If sort_function had been supplied,
+it is called with the hash as its argument.
+.sp
+Note that if the hash key sort_function_argument exists, the new strings is
+appended to the existing hash value.
+.\"
+.TP
+.B keysort(%hash)
+A sort routine that will sort on the keys of a hash as if it were a normal
+array.
+For example:
+.sp
+.nf
+ProcessHistory("TAG","keysort","B0","!\\n");
+ProcessHistory("TAG","keysort","D0","!\\n");
+.fi
+.sp
+B0 and D0 are the sort keys.
+.\"
+.TP
+.B valsort(%hash)
+A sort routine that will sort on the values of a hash as if it were a normal
+array.
+.sp
+.nf
+ProcessHistory("TAG","valsort","","!B0\\n");
+ProcessHistory("TAG","valsort","","!D0\\n");
+.fi
+.\"
+.TP
+.B numsort(%hash)
+A numerical sort routine (ascending).
+.\"
+.TP
+.B ipsort(IPv4/v6 dotted-quad)
+A sort routine that will sort on the ip address when the IP address is
+anywhere in the strings.
+.sp
+.nf
+ProcessHistory("TAG","ipsort","192.168.0.0","!B0\\n");
+ProcessHistory("TAG","ipsort","192.168.1.0","!D0\\n");
+.fi
+.\"
+.TP
+.B sortbyipaddr(XXX)
+A sort routine that will sort based upon IPv4/v6 addresses.
+.PP
+Please see the library code for exported variables.
+.PP
+.\"
+.SH "SEE ALSO"
+.BR rancid (1),
+.BR rancid.types.conf (5)

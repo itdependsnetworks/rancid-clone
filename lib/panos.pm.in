@@ -1,0 +1,141 @@
+package panos;
+##
+## $Id: panos.pm.in 3226 2016-01-15 21:41:54Z heas $
+##
+## @PACKAGE@ @VERSION@
+@copyright@
+#
+# Amazingly hacked version of Hank's rancid - this one tries to
+# deal with Palo Altos
+#
+#  RANCID - Really Awesome New Cisco confIg Differ
+#
+#  panos.pm - Palo Alto Networks rancid procedures
+#
+# 2013-01-05 - fix to put cli pager after scripting-mode is off - doug
+#			   hughesd@deshawresearch.com
+#
+
+use 5.010;
+use strict 'vars';
+use warnings;
+no warnings 'uninitialized';
+require(Exporter);
+our @ISA = qw(Exporter);
+
+use rancid @VERSION@;
+
+@ISA = qw(Exporter rancid main);
+#XXX @Exporter::EXPORT = qw($VERSION @commandtable %commands @commands);
+
+# load-time initialization
+sub import {
+    0;
+}
+
+# post-open(collection file) initialization
+sub init {
+
+    # add content lines and separators
+    ProcessHistory("","","","!RANCID-CONTENT-TYPE: $devtype\n!\n");
+
+    0;
+}
+
+# main loop of input of device output
+sub inloop {
+    my($INPUT, $OUTPUT) = @_;
+    my($cmd, $rval);
+
+    # Paloalto buffers commands and prints them twice, once while buffering,
+    # and once while executing. It's a bit weird and causes default rancid
+    # code a bit of a conniption, so we need to only execute the callbacks
+    # on second discovery.
+
+TOP: while(<$INPUT>) {
+	tr/\015//d;
+	if  (/[>#]\s?exit$/) {
+	    $clean_run = 1;
+	    print STDERR "exiting\n" if ($debug);
+	    # because exit occurs implicitly, too
+	    delete($commands{exit});
+	    last;
+	}
+	print STDERR ("line: $_") if ($debug);
+	if (/^Error:/) {
+	    print STDOUT ("$host panlogin error: $_");
+	    print STDERR ("$host panlogin error: $_") if ($debug);
+	    $clean_run = 0;
+	    last;
+	}
+	while (/\w+@\S+[>#]\s*($cmds_regexp)\s*$/) {
+	    $cmd = $1;
+	    if (!defined($prompt)) {
+		$prompt = ($_ =~ /^([^>]+>)/)[0];
+		$prompt =~ s/>/\[#>\]/;
+		$prompt =~ s/\(/\\(/;
+		$prompt =~ s/\)/\\)/;
+		print STDERR ("PROMPT MATCH: $prompt\n") if ($debug);
+	    }
+	    print STDERR ("HIT COMMAND:$_\n") if ($debug);
+	    print STDERR ("COMMAND is: $cmd|$commands{$cmd}\n") if ($debug);
+	    if (! defined($commands{$cmd})) {
+		print STDERR "$host: found unexpected command - \"$cmd\"\n";
+		$clean_run = 0;
+		last TOP;
+	    }
+	    if (! defined(&{$commands{$cmd}})) {
+		printf(STDERR "$host: undefined function - \"%s\"\n",
+		       $commands{$cmd});
+		$clean_run = 0;
+		last TOP;
+	    }
+	    $rval = &{$commands{$cmd}}($INPUT, $OUTPUT, $cmd);
+	    delete($commands{$cmd});
+	    if ($rval == -1) {
+		$clean_run = 0;
+		last TOP;
+	    }
+	}
+    }
+}
+
+# This routine parses "show system info"
+sub ShowInfo {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    my($slot);
+
+    print STDERR "    In ShowInfo:: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(time:|uptime:)/);
+	next if (/^(app|av|global-protect-datafile|threat|wf-private|wildfire|url-filtering)-(version|release-date):/);
+
+	ProcessHistory("INFO","","","#$_");
+    }
+    ProcessHistory("INFO","","","#\n");
+    return(0);
+}
+
+
+# This routine parses "show config running"
+sub ShowConfig {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    print STDERR "    In ShowConfig: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	if (/^}\s*$|\[edit\]/) {
+	    $found_end = 1;
+	    return(1);
+	}
+
+	ProcessHistory("","","","$_");
+	# end of config
+    }
+    return 0;
+}
+
+1;
