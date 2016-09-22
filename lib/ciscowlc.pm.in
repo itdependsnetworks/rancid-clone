@@ -1,6 +1,6 @@
 package ciscowlc;
 ##
-## $Id: ciscowlc.pm.in 3226 2016-01-15 21:41:54Z heas $
+## $Id: ciscowlc.pm.in 3444 2016-08-10 16:25:47Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 @copyright@
@@ -43,7 +43,7 @@ sub inloop {
 
 TOP: while(<$INPUT>) {
 	tr/\015//d;
-	if (/^.*logout$/)  {
+	if (/^.*logout(Connection.*closed.)?$/)  {
 	    $clean_run = 1;
 	    last;
 	}
@@ -94,7 +94,7 @@ sub ShowConfig {
         tr/\020//d;
 
 	next if (/^\s*rogue ap classify/);
-	next if (/^\s*rogue adhoc alert/);
+	next if (/^\s*rogue (adhoc|client) alert/);
 
 	$linecnt++;
 
@@ -151,6 +151,7 @@ sub ShowSysinfo {
 	if (/^System Up Time/) { $skipprocess = 1; }
 	if (/^fan status/i) { $skipprocess = 1; }
 	if (/^Number of Active Clients/) { $skipprocess = 1; }
+	if (/^OUI Classification Failure Count/) { $skipprocess = 1; }
 	if (/^(internal|external) temperature/i) { $skipprocess=1; }
 	if (/rpm$/) { $skipprocess = 1; }
 

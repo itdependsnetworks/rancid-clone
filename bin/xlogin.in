@@ -1,11 +1,11 @@
 #! @EXPECT_PATH@ --
 ##
-## $Id: clogin.in 3445 2016-08-10 17:15:38Z heas $
+## $Id: clogin.in 3286 2016-02-17 12:26:54Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 @copyright@
 #
-# clogin - Cisco login
+# xlogin - Extreme login
 #
 # Most options are intuitive for logging into a Cisco router.
 # The default is to enable (thus -noenable).  Some folks have
@@ -37,7 +37,10 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
 	if [string match "telnet*" $prog] {
 	    regexp {telnet(:([^[:space:]]+))*} $prog methcmd suffix port
 	    if {"$port" == ""} {
-		set retval [catch {spawn telnet $router} reason]
+		set port 23
+	    }
+	    if { $do_command || $do_script } {
+		set retval [catch {spawn telnet $router $port} reason]
 	    } else {
 		set retval [catch {spawn telnet $router $port} reason]
 	    }
@@ -58,7 +61,11 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
 	    if {"$identfile" != ""} {
 		set cmd "$cmd -i $identfile"
 	    }
-	    set retval [catch {eval spawn [split "$cmd -x -l $user $router" { }]} reason]
+	    if { $do_command || $do_script } {
+		set retval [catch {eval spawn [split "$cmd -x -l $user $router" { }]} reason]
+	    } else {
+		set retval [catch {eval spawn [split "$cmd -x -l $user $router" { }]} reason]
+	    }
 	    if { $retval } {
 		send_user "\nError: $cmd failed: $reason\n"
 		return 1
@@ -280,6 +287,12 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
 				  send -- "$user\r"
 				  set uprompt_seen 1
 				  exp_continue
+				}
+	-re "\\e\\\[Klogin:"	{
+				  # eat weird EXOS >11.0 re-printing of the
+				  # telnet login prompt so we do not become
+				  # out of sync with the user/passwd prompts.
+				  exp_continue;
 				}
 	-re "$p_prompt"		{
 				  sleep 1
@@ -561,7 +574,7 @@ foreach router [lrange $argv $i end] {
     # Figure out prompts
     set u_prompt [find userprompt $router]
     if { "$u_prompt" == "" } {
-	set u_prompt "(\[Uu]sername|Login|login|user name|User):"
+	set u_prompt "^(\[Uu]sername|Login|login|user name|User):"
     } else {
 	set u_prompt [join [lindex $u_prompt 0] ""]
     }
@@ -637,6 +650,8 @@ foreach router [lrange $argv $i end] {
 	-re "^(.+\[:.])1 ($reprompt)" { # stoopid extreme cmd-line numbers and
 				  # prompt based on state of config changes,
 				  # which may have an * at the beginning.
+				  # save the whole prompt to match once below.
+				  set lastprompt $expect_out(0,string)
 				  set junk $expect_out(1,string)
 				  regsub -all "^\\\* " $expect_out(1,string) {} junk
 				  regsub -all "\[\]\[\(\)]" $junk {\\&} junk;
@@ -665,7 +680,17 @@ foreach router [lrange $argv $i end] {
 	    expect -re $prompt		{}
 	} else {
 	    send "disable clipaging\r"
-	    expect -re $prompt		{}
+	    expect {
+		-re "^$lastprompt"	{ 
+				  	  # eat weird EXOS >11.0 re-printing of
+					  # the first prompt after ssh login so
+					  # we do not become out of sync with
+					  # the prompts.
+					  exp_continue;
+					}
+		-re "\[^\r\n]*\[\r\n]+"	{ exp_continue; }
+		-re "^$prompt"		{}
+	    }
 	}
     }
     if { $do_command } {

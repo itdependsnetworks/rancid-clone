@@ -1,6 +1,6 @@
 #! /bin/sh
 ##
-## $Id: control_rancid.in 3234 2016-01-22 03:21:58Z heas $
+## $Id: control_rancid.in 3446 2016-08-12 21:46:09Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 ## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
@@ -146,7 +146,7 @@ if [ ! -d $DIR ] ; then
     exit 1
 fi
 cd $DIR
-if [ -e "rancid.conf" ] ; then
+if [ -f "rancid.conf" ] ; then
     . ./rancid.conf
 fi
 
@@ -193,7 +193,7 @@ git )
 *.new
 *.raw
 EOF
-    if [ -e .gitignore.locale ] ; then
+    if [ -f .gitignore.locale ] ; then
 	cat .gitignore.locale >> .gitignore
     fi
     ;;
@@ -211,7 +211,7 @@ routers.single
 routers.up
 runcount
 EOF
-    if [ -e .cvsignore.locale ] ; then
+    if [ -f .cvsignore.locale ] ; then
 	cat .cvsignore.locale >> .cvsignore
     fi
     if [ ! -f configs/.cvsignore ] ; then
@@ -224,7 +224,7 @@ EOF
 *.new
 *.raw
 EOF2
-    if [ -e configs/.cvsignore.locale ] ; then
+    if [ -f configs/.cvsignore.locale ] ; then
 	cat configs/.cvsignore.locale >> configs/.cvsignore
     fi
     if [ $RCSSYS = svn ] ; then
@@ -436,7 +436,7 @@ for router in `cut -d\; -f1 ../routers.up` ; do
 	fi
 	;;
     svn )
-	if [ ! -e $router ] ; then
+	if [ ! -f $router ] ; then
 	    touch $router
 	fi
 	svn status $router | grep '^?' > /dev/null 2>&1
@@ -447,7 +447,7 @@ for router in `cut -d\; -f1 ../routers.up` ; do
 	fi
         ;;
     git )
-	if [ ! -e $router ] ; then
+	if [ ! -f $router ] ; then
 	    touch $router
 	fi
 	git status $router | grep '^?' > /dev/null 2>&1
@@ -482,15 +482,15 @@ cd $DIR
 
 # no routers, empty list or all 'down'
 if [ ! -s routers.up ] ; then
-    # commit router.db
+    # commit router.db, etc
     message="updates of group $GROUP"
     case $RCSSYS in
     cvs | svn )
-	$RCSSYS commit -m "$message" router.db
+	$RCSSYS commit -m "$message"
 	;;
     git )
 	git add router.db
-	git commit -m "$message" router.db
+	git commit -am "$message"
 	;;
     esac
     exit;
@@ -628,7 +628,7 @@ else
 fi
 
 # working-directory maintenance & cleanup every 100 runs
-if [ -e "runcount" ] ; then
+if [ -f "runcount" ] ; then
     read RUNCOUNT < ./runcount
     RUNCOUNT=`expr $RUNCOUNT + 1`
 else

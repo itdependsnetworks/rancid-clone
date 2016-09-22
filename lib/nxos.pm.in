@@ -1,6 +1,6 @@
 package nxos;
 ##
-## $Id: nxos.pm.in 3237 2016-01-22 18:07:17Z heas $
+## $Id: nxos.pm.in 3420 2016-07-06 00:33:36Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 @copyright@
@@ -53,7 +53,7 @@ sub init {
     $C0 = 0;				# output formatting control
     $E0 = 0;
     $H0 = 0;
-    $DO_SHOW_VLAN = 0;
+    $DO_SHOW_VLAN = 1;
 
     # add content lines and separators
     ProcessHistory("","","","!RANCID-CONTENT-TYPE: $devtype\n!\n");
@@ -98,7 +98,7 @@ TOP: while(<$INPUT>) {
 		last TOP;
 	    }
 	    if (! defined(&{$commands{$cmd}})) {
-		printf(STDERR "$host: undefined function - \"%s\"\n",  
+		printf(STDERR "$host: undefined function - \"%s\"\n",
 		       $commands{$cmd});
 		$clean_run = 0;
 		last TOP;
@@ -325,7 +325,7 @@ sub ShowEnvTemp {
 	return(1) if /Line has invalid autocommand /;
 	return(1) if /(Invalid input detected|Type help or )/;
 	return(1) if (/No token match at /);	# 1000v
-	return(-1) if (/\% Invalid command at /);
+	return(1) if (/\% Invalid command at /);# 1000v has no support
 	return(-1) if (/\% Permission denied/);
 	return(-1) if (/command authorization failed/i);
 
@@ -401,7 +401,7 @@ sub ShowEnvPower {
 # -------  -------------------  ----------  ----------  ----------
 # --------------
 # 1        N9K-PAC-650W-B             65 W        76 W       649 W     Ok
-# 2        N9K-PAC-650W-B             70 W        84 W       649 W     Ok 
+# 2        N9K-PAC-650W-B             70 W        84 W       649 W     Ok
 #  
 #  
 # Power Usage Summary:
@@ -419,9 +419,9 @@ sub ShowEnvPower {
 # Total Power Available for additional modules                  N/A  
 # 
 # nexus#
-	if ( /(.* +)(\d+ W)( +\d+ W.*)/) {
+	if (/(.* +)(\d+ W +\d+ W)( +\d+ W.+)/) {
 	    $_ = sprintf("%s%-". length($2)."s%s\n", $1, "", $3);
-	} elsif ( /(.* +)(\d+ W)( +\d+ W.*)/) {
+	} elsif (/(.* +)(\d+ W)( +\d+ W.+)/) {
 	    $_ = sprintf("%s%-". length($2)."s%s\n", $1, "", $3);
 	}
 
@@ -613,8 +613,9 @@ sub ShowVTP {
 	    s/^$1\s{$len}//;
 	}
 
-	if (/^VTP Operating Mode\s+:\s+(Transparent|Server)/) {
-	    $DO_SHOW_VLAN = 1;
+	# Nexus 5k and 1000v do note support vtp
+	if (!/^VTP Operating Mode\s+:\s+(Transparent|Server)/) {
+	    $DO_SHOW_VLAN = 0;
 	}
 	ProcessHistory("COMMENTS","","","!VTP: $_");
     }
@@ -759,7 +760,7 @@ sub WriteTerm {
     my($lineauto,$comment,$linecnt) = (0,0,0);
 
     while (<$INPUT>) {
-	tr/\015//d;
+REPEAT:	tr/\015//d;
 	last if (/^$prompt/);
 	return(1) if /Line has invalid autocommand /;
 	return(1) if (/(Invalid input detected|Type help or )/i);
@@ -796,6 +797,57 @@ sub WriteTerm {
 	    ProcessHistory("","","","! $1 password <removed>\n");
 	    next;
 	}
+	# sort ipv{4,6} access-lists
+	if ($aclfilterseq && /^ip(v4|v6)? access-list (\S+)\s*$/) {
+	    my($nlri, $key) = ($1, $2);
+	    my($seq, $cmd);
+	    if (length($nlri) eq 0) {
+		$nlri = "ipv4";	# assume ip will become ipv4 at some point
+	    }
+	    ProcessHistory("ACL $nlri $key","","","$_");
+	    while (<$INPUT>) {
+		tr/\015//d;
+		goto REPEAT if (/^$prompt/ || /^(\s|\d|!)/);
+		if (/^\s*!/) {
+		    ProcessHistory("ACL $nlri $key !", "", "", "$_");
+		    next;
+		}
+		# ip access-list copp-system-acl-bgp
+		#   10 permit tcp any gt 1024 any eq bgp
+		#   20 permit tcp any eq bgp any gt 1024
+		# ipv6 access-list copp-system-acl-bgp6
+		#   10 permit tcp any gt 1024 any eq bgp
+		#   20 permit tcp any eq bgp any gt 1024
+		# XXX this may need more format handling; going off email with
+		#     a user.
+		my($seq, $cmd, $resid) = ($_ =~ /^\s*(\d+) (\w+) (.+)/);
+		if ($cmd =~ /(permit|deny)/) {
+		    my($ip);
+		    my(@w) = ($resid =~ /(\S+) (\S+) (\S+\s)?(.+)/);
+		    for (my($i) = 0; $i < $#w; $i++) {
+			if ($w[$i] eq "any") {
+			    if ($nlri eq "ipv4") {
+				$ip = "255.255.255.255/32";
+			    } else {
+				$ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128";
+			    }
+			    last;
+			} elsif ($w[$i] =~ /^[:0-9]/ ||
+				 $2[$i] =~ /^[a-fA-F]{1,4}:/) {
+			    $ip = $w[$i];
+			    $ip =~ s/\s+$//;		# trim trailing WS
+			    last;
+			}
+		    }
+		    ProcessHistory("ACL $nlri $key $cmd", "$aclsort", "$ip",
+				   " $cmd $resid\n");
+		} else {
+		    ProcessHistory("ACL $nlri $key $cmd", "", "",
+				   " $cmd $resid\n");
+		}
+	    }
+	}
+
 	# Why was this commented out? It shows up in the raw text...
 	if (/^(snmp-server community) (\S+)/) {
 	    if ($filter_commstr) {

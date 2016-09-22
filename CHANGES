@@ -1,3 +1,162 @@
+3.5
+	aeos.pm: handle returning from a function with a prompt in $_
+
+	rancid-cvs, rancid-run, rancid.conf: use LOGDIR from rancid.conf, set a
+	default, and makes manpage notes - David Jones
+
+	complogin: correct ssh/telnet port variable check
+
+	control_rancid: if the router list is empty, commit everything, not
+	just router.db.  .cvsignore, rancid.conf, etc.
+
+	*login: do not default to ssh -c 3des; as openssh removes more legacy
+	algorithms.  note work-arounds in the FAQ S3 & adjust manpages.
+
+	ciscowlc.pm: filter OUI classification failures - Reuben Farrelly
+
+	ciscowlc.pm: filter rogue client config that are added/removed
+	automatically - Reuben Farrelly
+
+	fnlogin: fix pager disabling for newer o/s - Romanens Xavier, Michael
+	Newton confirms working for older 4.x o/s
+
+	edgerouter.pm: filter passwords, snmp community, keys, GC some unused
+	code, & fix comment character.
+
+	ciscowlc.pm: some older code fails to echo <CR> after logout - Bill
+	Fenner
+
+	edgerouter.pm: initial module for Ubiquity Edgerouter, WiP
+
+	hlogin: when refactoring prompt, eat full lines before looking for the
+	prompt
+
+	hpuifilter: only turn off echo on the tty, not also the slave pty,
+	which fixes the echoing problem with Ubiquity Edgerouters
+
+	a10login: fix cut-n-paste bug - Romanens Xavier
+
+	flogin: eat spaces followed by ^H - from Allen
+
+	login_top: move variable initialization so it doesnt override env()s -
+	Bill Fenner
+
+	foundry.pm: ignore invalid command errors in inloop found on Ironware
+	5.5 for MLX - Erik Muller
+
+	srancid: filter oscillating file aaafile.prv - Wellie W. Chao
+
+	nxos.pm: reverse VTP test for nexus without vtp
+
+	ios.pm: filter ios-xe requested time from show inventory feature
+
+	iosxr.pm: differences in NCS6k show inventory
+
+	nxos.pm: show env temp does not exist on 1000v
+
+	lg.cgi: add show interfaces wanphy for cisco-xr & juniper
+
+	cisco: Change command show flash to show flash:.  The first has been
+	dropped from the 15.5M and the latter seems to be supported back as I
+	can check. - Onno Ossendrijver
+
+	mrvlogin, mrv.pm: fixes for MRV Optiswitch devices - Christian Rohmann
+
+	iosxr.pm: fix handling of comments in access-lists
+
+	nxos.pm: sort ip{v6} access-lists & filter sequence numbers
+
+	foundry.pm: summarize flash free space
+
+	xrancid, exos.pm, xlogin: convert extreme to a module and hack clogin
+	into xlogin to deal some weird terminal handling in EXOS >11.0 that
+	uses terminal manipulation to reprint the login prompt (telnet) or
+	the first cli prompt (ssh). - thanks to Nick Hilliard
+
+	nxos.pm: fix PS wattage filtering - Kyle Wilson
+
+	junos.pm: filter benign subsystem warnings
+
+	ios.pm: filter license broker BS
+
+	FAQ: add notes about openssh client changes for logjam
+
+	hpuifilter: fix handling of buffer when it drains
+
+	rancid.conf: change NOCOMMSTR to require "YES", not just defined
+
+	arrancid, aeos.pm: convert Arista to a module
+
+	ios.pm: add show license summary for older XE images, such as C4500e
+	3.04/15.1
+
+	bigip.pm: module for F5 BIG-IP >=v11
+
+	rancid.conf: add variable FILTER_OSC to control filtering oscillating
+	data.  See rancid.conf(5).  This may not yet be applied in all places.
+
+	rancid: change logging of missed commands to preserve order to make it
+	easier for us to parse when providing support.  also, only log to stderr
+	and not just with -d.
+
+	fnrancid: filter new private key format and fix filtering of encryptd
+	passwords
+
+	ios.pm: filter/sort new ipv4/6 access-list format where list names are
+	omitted from rule lines.
+
+	ios.pm: correct debug log msg - Reuben Farrelly
+
+	iosxr.pm: ShowInstallSummary() return error if active install operation
+
+	iosxr.pm: filter perpetually changing file aaa
+
+	srancid: Add 'terminal dump' cmd for Dell PowerConnect 3524/3548 -
+	Wellie W. Chao
+
+	iosxr.pm: fail on temp error in admin show install
+
+	configure: fix mktemp variable inconsistency - Lee
+
+	edgemax.pm: https://www.ubnt.com/edgemax/
+
+	flogin: merge ssh key code from jlogin
+
+	junos.pm: chassis command error changed/differs in vMX:
+		error: the chassis subsystem is not running
+		to
+		error: the chassis-control subsystem is not responding to ...
+
+	jlogin: missing catch for wait in login()
+
+	rancid-cvs: initialize .git/description
+
+	iosxr.pm: ASR show version chassis line changed - tip top work cisco
+
+	ios.pm: strip license period from 2900
+
+	ios.pm: show license is an incomplete cmd on older XE images
+
+	ios.pm: trim trailing WS is show activation key, formatting problem on
+	old ASAs
+
+	plogin: wrong variable used in error msg - randy bush
+
+	control_rancid: test -e -> -f for old shells
+
+	hpuifilter: missing include for solaris
+
+	ios.pm: recognize aironet in ShowVersion & filter counters in ShowVlan -
+	Howard Jones
+
+	rancid-cvs: do not set git config --global, local only
+
+	flogin: build with login_top
+
+	foundry.pm: add 'show media' and 'show media validation', tested on
+	Brocade ICX 6650 and Brocade CER 2024, but not available on pre-8
+	firmware - Chris Wopat
+
 3.4.1
 	iosxr.pm: add errmsg_cont to filtered flash files - xr 5.3.1 debugging
 	turd?
@@ -931,7 +1090,7 @@
 
 	rancid: filter filesize and date of tracelogs dir on IOS-XE
 
-	rancid: summarize bytes free for IOS-XE like XR 
+	rancid: summarize bytes free for IOS-XE like XR
 
 	nsrancid/nslogin: updates for netscalar version 8 - Marco Schirrmeister
 

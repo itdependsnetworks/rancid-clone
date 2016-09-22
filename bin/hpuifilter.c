@@ -1,7 +1,7 @@
 /*
- * $Id: hpuifilter.c 3233 2016-01-21 23:28:16Z heas $
+ * $Id: hpuifilter.c 3428 2016-07-20 09:47:52Z heas $
  *
- * Copyright (c) 1997-2015 by Terrapin Communications, Inc.
+ * Copyright (c) 1997-2016 by Terrapin Communications, Inc.
  * All rights reserved.
  *
  * This code is derived from software contributed to and maintained by
@@ -107,6 +107,11 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <termios.h>
+#if HAVE_WAIT_H
+# include <wait.h>
+#elif HAVE_SYS_WAIT_H
+# include <sys/wait.h>
+#endif
 #if HAVE_UTIL_H
 # include <util.h>
 #elif HAVE_LIBUTIL_H
@@ -210,7 +215,6 @@ main(int argc, char **argv, char **ev)
 		strerror(errno));
 	return(EX_OSERR);
     }
-    tios.c_lflag &= ~ECHO;
     tios.c_lflag &= ~ICANON;
 #ifdef VMIN
     tios.c_cc[VMIN] = 1;
@@ -226,6 +230,7 @@ main(int argc, char **argv, char **ev)
      * if a tty, make it raw as the hp echos _everything_, including
      * passwords.
      */
+    tios.c_lflag &= ~ECHO;
     if (isatty(fileno(stdin))) {
 	if (tcgetattr(fileno(stdin), &tios)) {
 	    fprintf(stderr, "%s: tcgetattr() failed: %s\n", progname,
@@ -372,9 +377,11 @@ main(int argc, char **argv, char **ev)
 		break;
 	    } else if (bytes > 0) {
 		hlen -= bytes;
-		memmove(hbuf, hbuf + bytes, hlen + 1);
-		if (hlen < 1)
-		     pfds[2].events &= ~POLLOUT;
+		if (hlen < 1) {
+		    pfds[2].events &= ~POLLOUT;
+		    hbuf[0] = '\0';
+		} else
+		    memmove(hbuf, hbuf + bytes, hlen + 1);
 	    }
 	}
 	if (pfds[2].revents & POLLEXP) {
@@ -422,9 +429,11 @@ main(int argc, char **argv, char **ev)
 		break;
 	    } else if (bytes > 0) {
 		tlen -= bytes;
-		memmove(tbuf, tbuf + bytes, tlen + 1);
-		if (tlen < 1)
+		if (tlen < 1) {
+		    tbuf[0] = '\0';
 		    pfds[1].events &= ~POLLOUT;
+		} else
+		    memmove(tbuf, tbuf + bytes, tlen + 1);
 	    }
 	}
 	if (pfds[1].revents & POLLEXP) {

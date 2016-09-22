@@ -1,6 +1,6 @@
 #! /bin/sh
 ##
-## $Id: rancid-cvs.in 3055 2015-03-12 18:24:07Z heas $
+## $Id: rancid-cvs.in 3448 2016-08-15 21:30:19Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 ## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
@@ -134,9 +134,11 @@ git)
     ;;
 esac
 
-# Log dir
-if [ ! -d logs ]; then
-    mkdir logs
+# LOGDIR location
+LOGDIR=${LOGDIR:=$BASEDIR/logs};
+if [ ! -d $LOGDIR ]; then
+    mkdir -p $LOGDIR || (echo "Could not create log directory: $LOGDIR" >&2;    
+			 exit 1)
 fi
 
 # Which groups to do
@@ -170,10 +172,12 @@ do
 	    ;;
 	git )
 	    git init --bare $CVSROOT/$GROUP
+	    echo "$GROUP RANCiD repository" > $CVSROOT/$GROUP/description
 	    git clone $CVSROOT/$GROUP .
-	    git config --global user.name RANCiD
-	    git config --global user.email $USER$MAILDOMAIN
-	    git config --global push.default current
+	    echo "$GROUP RANCiD repository" > .git/description
+	    git config user.name RANCiD
+	    git config user.email $USER$MAILDOMAIN
+	    git config push.default current
 	    ;;
 	esac
     fi

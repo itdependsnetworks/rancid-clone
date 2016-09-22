@@ -1,6 +1,6 @@
 #! @PERLV_PATH@
 ##
-## $Id: lgform.cgi.in 3262 2016-02-12 14:59:59Z heas $
+## $Id: lgform.cgi.in 3352 2016-04-04 10:15:53Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 ## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
@@ -244,7 +244,7 @@ TABLEHEAD
 
 foreach $sub_type (sort keys(%$queries)) {
     next if (! scalar(%{$queries->{$sub_type}}));
-    print $query->radio_group (-name => 'query',
+    print $query->radio_group(-name => 'query',
 				-values => $queries->{$sub_type},
 				-default => '-', -linebreak => 'true');
     print "\n" . $query->hr . "\n";

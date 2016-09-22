@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 ## A Makefile.in is supplied, in case you do not have automake.
 
-## $Id: Makefile.am 3280 2016-02-16 12:34:43Z heas $
+## $Id: Makefile.am 3400 2016-05-25 06:48:52Z heas $
 ##
 ## Copyright (c) 1997-2015 by Terrapin Communications, Inc.
 ## All rights reserved.
@@ -12,24 +12,25 @@
 AUTOMAKE_OPTIONS=foreign
 
 bin_PROGRAMS = hpuifilter par
-bin_SCRIPTS = a10login alogin agmrancid anlogin arancid arrancid \
-	avologin avorancid blogin brancid cat5rancid clogin complogin \
+bin_SCRIPTS = a10login alogin agmrancid anlogin arancid \
+	avologin avorancid blogin brancid brlogin cat5rancid clogin complogin \
 	control_rancid cssrancid dllogin elogin erancid f5rancid f10rancid \
 	flogin fnlogin fnrancid hlogin hrancid htlogin \
 	htrancid jerancid jlogin mrancid mrvlogin mtlogin mtrancid \
 	nlogin nrancid nslogin nsrancid panlogin plogin \
 	rancid rblogin rivlogin \
-	rivrancid rrancid rtftpcopy srancid tlogin trancid wlogin \
-	xilogin xirancid xrancid zrancid
+	rivrancid rrancid rtftpcopy srancid tlogin trancid ulogin wlogin \
+	xilogin xirancid xlogin zrancid
 # XXX hack for the rancid to get pkglibdir, see corresponding XXX below
-bin_in = plogin.in rancid.in
+bin_in = plogin.in rancid.in srancid.in
 
 bin_SCRIPTS += lg.cgi lgform.cgi rancid-cvs rancid-fe rancid-run
 EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in \
 	$(bin_in) login_top.in
 #dist_bin_SCRIPTS= $(bin_SCRIPTS:%=%.in)
 
-CLEANFILES= lg.cgi lgform.cgi plogin rancid rancid-cvs rancid-fe rancid-run
+CLEANFILES= lg.cgi lgform.cgi plogin rancid rancid-cvs rancid-fe rancid-run \
+	srancid
 #CLEANFILES= $(bin_SCRIPTS)
 
 hpuifilter_SOURCES = hpuifilter.c

@@ -1,6 +1,6 @@
 package iosxr;
 ##
-## $Id: iosxr.pm.in 3280 2016-02-16 12:34:43Z heas $
+## $Id: iosxr.pm.in 3418 2016-07-05 22:45:09Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 @copyright@
@@ -95,7 +95,7 @@ CMD:	if (/[>#]\s?exit$/) {
 		last TOP;
 	    }
 	    if (! defined(&{$commands{$cmd}})) {
-		printf(STDERR "$host: undefined function - \"%s\"\n",  
+		printf(STDERR "$host: undefined function - \"%s\"\n",
 		       $commands{$cmd});
 		$clean_run = 0;
 		last TOP;
@@ -206,80 +206,7 @@ sub ShowVersion {
 		s/^/, /;
 	    }
 
-	    if ($proc eq "CSC") {
-		$type = "AGS";
-	    } elsif ($proc eq "CSC4") {
-		$type = "AGS+";
-	    } elsif ($proc =~ /1900/) {
-		$type = "1900";
-		$device = "switch";
-	    } elsif ($proc =~ /2811/) {
-		$type = "2800";
-            } elsif ( $proc =~ /^ME-3400/) {
-                $type = "ME3400";
-            } elsif ( $proc =~ /^ME-C37/) {
-                $type = "ME3700";
-            } elsif ( $proc =~ /^ME-C65/) {
-                $type = "ME6500";
-	    } elsif ($proc =~ /C3750/) {
-		$type = "3750";
-		$device = "switch";
-	    } elsif ($proc =~ /^(AS)?25[12][12]/) {
-		$type = "2500";
-	    } elsif ($proc =~ /261[01]/ || $proc =~ /262[01]/ ) {
-		$type = "2600";
-	    } elsif ($proc =~ /WS-C29/) {
-		$type = "2900XL";
-		$device = "switch";
-	    } elsif ($proc =~ /WS-C355/) {
-		$type = "3550";
-		$device = "switch";
-	    } elsif ($proc =~ /WS-C35/) {
-		$type = "3500XL";
-		$device = "switch";
-	    } elsif ($proc =~ /^36[0246][0-9]/) {
-		$type = "3600";
-	    } elsif ($proc =~ /^37/) {
-		$type = "3700";
-            } elsif ( $proc =~ /WS-C375/) {
-                $type = "3750";
-                $device = "switch";
-	    } elsif ($proc =~ /^38/) {
-		$type = "3800";
-	    } elsif ($proc =~ /WS-C45/) {
-		$type = "4500";
-		$device = "switch";
-	    } elsif ( $proc =~ /^AS5300/) {
-		$type = "AS5300";
-	    } elsif ( $proc =~ /^AS5350/) {
-		$type = "AS5350";
-	    } elsif ( $proc =~ /^AS5400/) {
-		$type = "AS5400";
-	    } elsif ($proc =~ /6000/) {
-		$type = "6000";
-		$device = "switch";
-	    } elsif ($proc eq "WK-C65") {
-		$type = "6500";
-            } elsif ( $proc =~ /WS-C6509/) {
-                $type = "6500";
-                $device = "router";
-	    } elsif ($proc eq "RP") {
-		$type = "7000";
-	    } elsif ($proc eq "RP1") {
-		$type = "7000";
-	    } elsif ($proc =~ /720[246]/) {
-		$type = "7200";
-	    } elsif ( $proc =~ /^73/) {
-		$type = "7300";
-	    } elsif ($proc eq "RSP7000") {
-		$type = "7500";
-	    } elsif ($proc =~ /RSP\d/) {
-		$type = "7500";
-	    } elsif ($proc =~ /OSR-76/) {
-		$type = "7600";
-	    } elsif ($proc =~ /CISCO76/) {
-		$type = "7600";
-	    } elsif ($proc =~ /1200[48]\/(GRP|PRP)/ || $proc =~ /1201[26]\/(GRP|PRP)/) {
+	    if ($proc =~ /1200[48]\/(GRP|PRP)/ || $proc =~ /1201[26]\/(GRP|PRP)/) {
 		$type = "12000";
 	    } elsif ($proc =~ /1201[26]-8R\/(GRP|PRP)/) {
 		$type = "12000";
@@ -292,6 +219,10 @@ sub ShowVersion {
                     $proc = $1;
                 } elsif (/(ASR\S+)\s+Chassis/) {
                     $proc = $1;
+                } elsif (/(ASR)\s+(9\d+)\s+.*\s+Chassis with/) {
+		    tr/\015//d;
+                    chomp;
+                    $proc = $_;
                 } elsif (/(ASR)\s+(9\S+)\s+(\SC)\s+Chassis/) {
                     $proc = "ASR-". $2;
                 } elsif (/(ASR)\s+(9\S+)\s+Chassis/) {
@@ -603,8 +534,8 @@ sub DirSlotN {
 	return(1) if (/(Open device \S+ failed|Error opening \S+:)/);
 	# filter frequently changing files from IOX bootflash, hardiska,
 	# and nvram
-	if ($dev =~ /(bootflash|harddisk|nvram)/) {
-	    if (/(ce_switch.log|errmsg_cont|genstr_cont|temp_cont|temp_static_data|uptime_cont|volt_cont)\s*$/) {
+	if ($dev =~ /(bootflash|disk0|harddisk|nvram)/) {
+	    if (/\s(aaa|ce_switch.log|errmsg_cont|genstr_cont|temp_cont|temp_static_data|uptime_cont|volt_cont)\s*$/) {
 		# change
 		# 57          -rw-  23100       <no date>              volt_cont
 		# 614788      drwx  4096        Fri Aug 20 12:06:25 2010  temp_cont
@@ -800,6 +731,8 @@ sub ShowInstallSummary {
 	return(1) if (/Ambiguous command/i);
 	return(1) if (/(Open device \S+ failed|Error opening \S+:)/);
 	return(-1) if (/command authorization failed/i);
+	return(-1) if (/inventory summary cannot be output/i);	# temp error
+	return(-1) if (/currently affected by install operation/i);# temp error
 
 	# skip blank lines
 	next if (/^\s*$/);
@@ -840,7 +773,7 @@ sub ShowInventory {
 
 	# remove spaces after quotes
 	s/\"\s+/\"/g;
-	if (/^(NAME: "[^"]*",) (DESCR: "[^"]+")/) {
+	if (/^(name: "[^"]*",) (descr: "[^"]+")/i) {
 	    ProcessHistory("INVENTORY","","", sprintf("!%-30s %s\n", $1, $2));
 	    next;
 	}
@@ -965,7 +898,7 @@ sub WriteTerm {
     my($lineauto,$comment,$linecnt) = (0,0,0);
 
     while (<$INPUT>) {
-	tr/\015//d;
+REPEAT:	tr/\015//d;
 	last if (/^$prompt/);
 	# filter the bloody cmd-line timestamp
 	next if (/^\w{3} \w{3,4} {1,3}\d{1,2} {1,2}\d{1,2}:\d+:\d+\.\d+ \S+$/);
@@ -1195,7 +1128,11 @@ sub WriteTerm {
 	    ProcessHistory("ACL $nlri $key","","","$_");
 	    while (<$INPUT>) {
 		tr/\015//d;
-		last if (/^$prompt/ || /^\S/);
+		goto REPEAT if (/^$prompt/ || !/^(\s|\d|!)/);
+		if (/^\s*!/) {
+		    ProcessHistory("ACL $nlri $key !", "", "", "$_");
+		    next;
+		}
 		# ipv4 access-list name
 		#  remark NTP
    		#  deny ipv4 host 224.0.1.1 any
@@ -1208,7 +1145,7 @@ sub WriteTerm {
 		#  permit ipv6 2001:nnn::/nnn any
 		#  permit 2001:nnnn::/64 any
 		#  permit udp any eq 123 any
-		my($seq, $cmd, $resid) = ($_ =~ /^\s+(\d+) (\w+) (.+)/);
+		my($seq, $cmd, $resid) = ($_ =~ /^\s*(\d+) (\w+) (.+)/);
 		if ($cmd =~ /(permit|deny)/) {
 		    my($ip);
 		    my(@w) = ($resid =~ /(\S+) (\S+) (\S+\s)?(.+)/);

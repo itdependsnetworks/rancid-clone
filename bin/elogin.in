@@ -1,6 +1,6 @@
 #! @EXPECT_PATH@ --
 ##
-## $Id: elogin.in 3102 2015-04-23 17:18:18Z heas $
+## $Id: elogin.in 3445 2016-08-10 17:15:38Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 @copyright@
@@ -474,7 +474,6 @@ foreach router [lrange $argv $i end] {
       set cyphertype $cypher
     } else {
       set cyphertype [find cyphertype $router]
-      if { "$cyphertype" == "" } { set cyphertype "3des" }
     }
 
     # Figure out connection method

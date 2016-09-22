@@ -48,9 +48,9 @@ AC_C_STRINGIZE
 # check includes/headers
 AC_HEADER_STDC
 AC_CHECK_HEADERS(ctype.h errno.h fcntl.h libutil.h limits.h pty.h malloc.h \
-		 memory.h siginfo.h string.h strings.h stropts.h \
-		 sys/resource.h sys/types.h sys/wait.h sysexits.h unistd.h \
-		 util.h wait.h)
+		 memory.h siginfo.h stdarg.h stdint.h stdlib.h string.h \
+		 strings.h stropts.h sys/resource.h sys/time.h \
+		 sys/types.h sys/wait.h sysexits.h unistd.h util.h wait.h)
 
 # check functions
 AC_CHECK_FUNCS(asprintf memcpy memmove memset strerror strchr \
@@ -299,9 +299,9 @@ fi
 AC_SUBST(EXPECT_PATH)
 
 # look for lockfile utility
-AC_PATH_PROG(MKTEMP_PATH,mktemp,no)
-if test $MKTEMP_PATH = no; then
-    unset ac_cv_path_MKTEMP_PATH
+AC_PATH_PROG(MKTEMP,mktemp,no)
+if test $MKTEMP = no; then
+    unset ac_cv_path_MKTEMP
     AC_MSG_ERROR([can't locate a mktemp(1).])
 fi
 AC_SUBST(MKTEMP)
@@ -479,10 +479,10 @@ AC_CONFIG_FILES(bin/a10login, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/agmrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/alogin bin/arancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/anlogin, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/arrancid, [chmod a+x $ac_file])
 dnl AC_CONFIG_FILES(bin/atrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/avologin bin/avorancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/blogin bin/brancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/brlogin, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/cat5rancid bin/clogin, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/complogin, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/cssrancid, [chmod a+x $ac_file])
@@ -505,11 +505,12 @@ AC_CONFIG_FILES(bin/rblogin, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/rivlogin bin/rivrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/rrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/rtftpcopy, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/srancid, [chmod a+x $ac_file])
+dnl AC_CONFIG_FILES(bin/srancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/tlogin, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/trancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/xilogin bin/xirancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/xrancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/xlogin, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/ulogin, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/wlogin, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/zrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(share/rtrfilter, [chmod a+x $ac_file])

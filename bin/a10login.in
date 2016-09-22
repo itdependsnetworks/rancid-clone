@@ -1,6 +1,6 @@
 #! @EXPECT_PATH@ --
 ##
-## $Id$
+## $Id: a10login.in 3445 2016-08-10 17:15:38Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 @copyright@
@@ -45,10 +45,13 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
 	    if {"$port" != ""} {
 		set cmd "$cmd -p $port"
 	    }
+	    if {"$cyphertype" != ""} {
+		set cmd "$cmd -c $cyphertype"
+	    }
 	    if {"$identfile" != ""} {
 		set cmd "$cmd -i $identfile"
 	    }
-	    set retval [catch {eval spawn [split "$cmd -c $cyphertype -x -l $user $router" { }]} reason]
+	    set retval [catch {eval spawn [split "$cmd -x -l $user $router" { }]} reason]
 	    if { $retval } {
 		send_user "\nError: $cmd failed: $reason\n"
 		return 1
@@ -147,7 +150,6 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
 	-nocase -re "^warning: remote host denied authentication agent forwarding." {
 	    exp_continue;
 	}
- 	-re "NOTICE:\[^\n\r]* - display now \[^\n\r]*:" {
 	-re "(denied|Sorry)"	{
 				  send_user "\nError: Check your passwd for $router\n"
 				  catch {close}; catch {wait}; return 1
@@ -506,7 +508,6 @@ foreach router [lrange $argv $i end] {
 	set cyphertype $cypher
     } else {
 	set cyphertype [find cyphertype $router]
-	if { "$cyphertype" == "" } { set cyphertype "3des" }
     }
 
     # Figure out connection method

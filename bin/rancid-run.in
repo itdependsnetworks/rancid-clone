@@ -1,6 +1,6 @@
 #! /bin/sh
 ##
-## $Id: rancid-run.in 3232 2016-01-21 17:46:40Z heas $
+## $Id: rancid-run.in 3448 2016-08-15 21:30:19Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 ## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
@@ -123,8 +123,11 @@ elif [ "$LIST_OF_GROUPS" = "" ] ; then
     exit 1
 fi
 
+# LOGDIR location
+LOGDIR=${LOGDIR:=$BASEDIR/logs};
 if [ ! -d $LOGDIR ] ; then
-    mkdir $LOGDIR || (echo "Could not create log directory: $LOGDIR"; exit 1)
+    mkdir -p $LOGDIR || (echo "Could not create log directory: $LOGDIR" >&2;
+			 exit 1)
 fi
 
 for GROUP in $LIST_OF_GROUPS

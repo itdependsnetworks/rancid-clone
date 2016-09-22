@@ -1,6 +1,6 @@
 #! @PERLV_PATH@
 ##
-## $Id: srancid.in 3229 2016-01-19 22:51:52Z heas $
+## $Id: srancid.in 3423 2016-07-06 23:32:06Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 ## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
@@ -53,10 +53,20 @@
 #	DELL PowerConnect M6348
 #	DELL PowerConnect N2048, N4032F and N4064.
 #	DELL PowerConnect 62xx
+#	DELL PowerConnect 7048
 #	DELL 34xx (partially; configuration is incomplete)
 #
+use 5.010;
+no warnings 'uninitialized';
+use Exporter;
 use Getopt::Std;
 getopts('dflt:CV');
+BEGIN {
+    push(@INC, "@pkglibdir@");
+}
+use rancid;
+our @ISA = qw(Exporter rancid);
+
 if ($opt_V) {
     print "@PACKAGE@ @VERSION@\n";
     exit(0);
@@ -71,6 +81,7 @@ $timeo = 90;				# hlogin timeout in seconds
 my(@commandtable, %commands, @commands);# command lists
 my($aclsort) = ("ipsort");		# ACL sorting mode
 my($filter_commstr);			# SNMP community string filtering
+my($filter_osc);			# oscillating data filtering mode
 my($filter_pwds);			# password filtering mode
 
 # This routine is used to print out the router configuration
@@ -187,6 +198,9 @@ sub Dir {
 	# pager remnants like: ^H^H^H    ^H^H^H content
 	s/[\b]+\s*[\b]*//g;
 
+	# filter oscillating files
+	next if /^aaafile\.prv/;
+
 	ProcessHistory("COMMENTS","keysort","D1","! $_");
     }
     ProcessHistory("COMMENTS","keysort","D1","!\n");
@@ -227,7 +241,7 @@ sub ShowSys {
 	# Remove Uptime
 	/ up time/i && next;
 
-	# filter temperature sensor info for Dell 6428 stacks
+	# filter temperature sensor info for Dell 6428 stacks, Powerconnect 7048
 	# /Temperature Sensors:/
 	if (/Temperature \(Celsius\)/) {
 	    ProcessHistory("COMMENTS","keysort","C1","! $_");
@@ -372,6 +386,7 @@ sub WriteTerm {
 
 # Main
 @commandtable = (
+	{'terminal datadump'		=> 'RunCommand'},	# dump all output of a show command without prompting
 	{'show system'			=> 'ShowSys'},
 	{'show version'			=> 'ShowVer'},
 	{'dir'				=> 'Dir'},
@@ -406,11 +421,10 @@ select(OUTPUT);
 if ($debug) { $| = 1; }
 
 if ($file) {
-    print STDERR "opening file $host\n" if ($debug);
-    print STDOUT "opening file $host\n" if ($log);
-    open(INPUT,"<$host") || die "open failed for $host: $!\n"; } else {
-    print STDERR "executing hlogin -t $timeo -c\"$commandstr\" $host\n" if ($debug);
-    print STDOUT "executing hlogin -t $timeo -c\"$commandstr\" $host\n" if ($log);
+    print(STDERR "opening file $host\n") if ($debug || $log);
+    open(INPUT,"<$host") || die "open failed for $host: $!\n";
+} else {
+    print(STDERR "executing hlogin -t $timeo -c\"$commandstr\" $host\n") if ($debug || $log);
     if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
 	system "hlogin -t $timeo -c \"$commandstr\" $host </dev/null > $host.raw 2>&1" || die "hlogin failed for $host: $!\n";
 	open(INPUT, "< $host.raw") || die "hlogin failed for $host: $!\n";
@@ -429,6 +443,12 @@ if (defined($ENV{"NOCOMMSTR"}) &&
     $filter_commstr = 1;
 } else {
     $filter_commstr = 0;
+}
+# determine oscillating data filtering mode
+if (defined($ENV{"FILTER_OSC"}) && $ENV{"FILTER_OSC"} =~ /no/i) {
+    $filter_osc = 0;
+} else {
+    $filter_osc = 1;
 }
 # determine password filtering mode
 if ($ENV{"FILTER_PWDS"} =~ /no/i) {
@@ -486,13 +506,23 @@ if (scalar(%commands) || !$found_end) {
     if (scalar(keys %commands) eq $commandcnt) {
 	printf(STDERR "$host: missed cmd(s): all commands\n");
     } elsif (scalar(%commands)) {
-	printf(STDOUT "$host: missed cmd(s): %s\n", join(',', keys(%commands)));
-	printf(STDERR "$host: missed cmd(s): %s\n", join(',', keys(%commands))) if ($debug);
+	my($count, $i) = 0;
+	for ($i = 0; $i < $#commands; $i++) {
+	    if ($commands{$commands[$i]}) {
+		if (!$count) {
+		    printf(STDERR "$host: missed cmd(s): %s", $commands[$i]);
+		} else {
+		    printf(STDERR ", %s", $commands[$i]);
+		}
+		$count++;
+	    }
+	}
+	if ($count) {
+	    printf(STDERR "\n");
+	}
     }
     if (!$found_end) {
-	print STDOUT "$found_end: found end\n";
-	print STDOUT "$host: End of run not found\n";
-	print STDERR "$host: End of run not found\n" if ($debug);
+	print(STDERR "$host: End of run not found\n");
 	system("/usr/bin/tail -1 $host.new");
     }
     unlink "$host.new" if (! $debug);

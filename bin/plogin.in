@@ -1,6 +1,6 @@
 #! @PERLV_PATH@
 ##
-## $Id: plogin.in 3102 2015-04-23 17:18:18Z heas $
+## $Id: plogin.in 3297 2016-02-26 22:01:40Z heas $
 ##
 ## @PACKAGE@ @VERSION@
 @copyright@
@@ -142,5 +142,5 @@ if (! defined($lscript)) {
     die "login script not defined for device type $rancid::devtype\n";
 }
 exec($lscript . " $cmd") ||
-printf(STDERR "exec($script) failed router manufacturer $devtype: $!\n");
+printf(STDERR "exec($lscript) failed router manufacturer $devtype: $!\n");
 exit(-1);
